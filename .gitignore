@@ -1,0 +1,4 @@
+venv
+.vscode
+export
+.DS_Store

@@ -1,16 +1,52 @@
 #!/usr/bin/python3
 import csv
+import logging
+import logging.handlers
+import os
 import re
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-web_adress = 'https://www.techsterowniki.pl/serwis/kontakt-serwis'
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.DEBUG)
+FORMATTER = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s')
+FILE_HANDLER = logging.FileHandler('scrapper.log')
+FILE_HANDLER.setFormatter(FORMATTER)
+LOGGER.addHandler(FILE_HANDLER)
+
+try:
+    if os.path.exists("scrapper.log"):
+        open('scrapper.log', 'w').close()
+except Exception as e:
+    pass
+
+try:
+    if os.path.exists("Lab3/export/content.csv"):
+        open('Lab3/export/content.csv', 'w').close()
+except Exception as e:
+    pass
 
 
-def scrape_web(web_adress):
-    r = requests.get(web_adress, verify=False)
+try:
+    os.mkdir('Lab3/export')
+except OSError as error:
+    LOGGER.debug(error)
+
+starting_web_address = 'https://www.techsterowniki.pl/serwis/kontakt-serwis'
+
+
+def scrape_web(web_adress, starting_web_address):
+    try:
+        r = requests.get(web_adress)
+    except requests.exceptions.SSLError as e:
+        LOGGER.info("SSL Certificate failed")
+        r = requests.get(web_adress, verify=False)
+    except requests.exceptions.MissingSchema as e:
+        r = requests.get(starting_web_address + web_adress)
+    except Exception as e:
+        raise e
     return BeautifulSoup(r.content, 'lxml')
 
 
@@ -24,49 +60,58 @@ def find_links(soup):
     r = re.compile(regex)
     # regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
     links_filtered = [i for i in links if i]
-    links_filtered.remove("javascript:void(0)")
-    # TODO: Remove bad links
-    links_filtered.remove(
-        "/przewodowy-sterownik-zaworow-termostatycznych-L-5s")
-    links_filtered.remove("/sterylizator-powietrza-SPT-31-inox")
-    # links_filtered.remove("/przewodowy-sterownik-zaworow-termostatycznych-L-5s")
-    # links_filtered.remove("/przewodowy-sterownik-zaworow-termostatycznych-L-5s")
+    try:
+        links_filtered.remove("javascript:void(0)")
+    except Exception as e:
+        raise e
 
     # links_filtered = list(filter(r.match, links_filtered))
-    print(f"LINKS: {links_filtered}")
+    LOGGER.info(f"LINKS: {links_filtered}")
 
     return links_filtered
 
 
 def extract_text(soup, webpage):
-    if soup:
+    try:
         text = soup.get_text(separator=';')
-        text = text.replace("\n", " ")
         for x in range(5):
-            text = re.sub(r"; ;", ";", text)
-        with open(f'Lab1/export/content.csv', 'a') as f:
-            f.write(webpage)
+            text = text.replace("\r", " ")
+            text = text.replace("\n", " ")
+            text = text.replace("; ;", ";")
+            text = text.replace(" ;", ";")
+            text = text.replace("; ", ";")
+            text = text.replace(";;", ";")
+            text = text.replace("\t", " ")
+            text = text.replace("  ", " ")
+
+        text = text.strip()
+        with open(f'Lab3/export/content.csv', 'a') as f:
+            f.write(webpage + ';')
             f.write(text)
             f.write("\n")
+            LOGGER.debug(f"[WRITE]{text}")
         return text
-    else:
+    except AttributeError as e:
+        LOGGER.warning("Attribute error")
         return "Blank"
+    except Exception as e:
+        raise e
 
 
-def find_email(text):
+def find_email(page_content):
     regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    emails = re.findall(regex, text)
+    emails = re.findall(regex, page_content)
     # emails = emails.split()
     if emails:
         for idx, val in enumerate(emails):
-            f = open('Lab1/export/emails.csv', 'a')
+            f = open('Lab3/export/emails.csv', 'a')
             write = csv.writer(f)
             write.writerow([val])
             f.close()
     return emails
 
 
-def remove_duplicates(emails_file='Lab1/export/emails.csv'):
+def remove_duplicates(emails_file='Lab3/export/emails.csv'):
     df = pd.read_csv(emails_file, delimiter=',')
     df.drop_duplicates(subset=None, inplace=True)
     df.to_csv(emails_file, index=False)
@@ -74,22 +119,29 @@ def remove_duplicates(emails_file='Lab1/export/emails.csv'):
 
 
 def main(web_adress):
-    print("[Starting]")
-    soup = scrape_web(web_adress)
+    starting_web_address = web_adress
+    visited_adresses = {starting_web_address}
+    LOGGER.info("[Starting]")
+    soup = scrape_web(web_adress, starting_web_address)
     links = find_links(soup)
 
     text = extract_text(soup.body, web_adress)
     find_email(text)
 
-    print("Initial scraping done. Scraping links")
+    LOGGER.info("Initial scraping done. Scraping links")
     for idx, val in enumerate(links):
-        print(f"Scraping: {val}")
-        soup = scrape_web(val)
-        text = extract_text(soup.body, web_adress)
-        find_email(text)
+        if val in visited_adresses:
+            LOGGER.debug("Adress already visited. Skipping.")
+            continue
+        else:
+            visited_adresses.add(val)
+            LOGGER.debug(f"Scraping: {val}")
+            soup = scrape_web(val, starting_web_address)
+            text = extract_text(soup.body, val)
+            find_email(text)
 
     remove_duplicates()
 
 
 if __name__ == "__main__":
-    main(web_adress)
+    main(starting_web_address)

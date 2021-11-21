@@ -2,3 +2,4 @@ venv
 .vscode
 export
 .DS_Store
+scrapper.log

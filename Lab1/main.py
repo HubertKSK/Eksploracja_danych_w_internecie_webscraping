@@ -23,14 +23,14 @@ except Exception as e:
     pass
 
 try:
-    if os.path.exists("Lab3/export/content.csv"):
-        open('Lab3/export/content.csv', 'w').close()
+    if os.path.exists("Lab1/export/content.csv"):
+        open('Lab1/export/content.csv', 'w').close()
 except Exception as e:
     pass
 
 
 try:
-    os.mkdir('Lab3/export')
+    os.mkdir('Lab1/export')
 except OSError as error:
     LOGGER.debug(error)
 
@@ -47,10 +47,18 @@ def scrape_web(web_adress, starting_web_address):
         r = requests.get(starting_web_address + web_adress)
     except Exception as e:
         raise e
-    return BeautifulSoup(r.content, 'lxml')
+
+    if r.status_code == requests.codes.ok and BeautifulSoup(r.content, 'lxml') != None:
+        return BeautifulSoup(r.content, 'lxml')
+
+    else:
+        LOGGER.warning(f"Page returned code {r.status_code}. Skipping.")
+        return BeautifulSoup("BLANK", "lxml")
 
 
 def find_links(soup):
+
+    # TODO: find in text
     links = []
     for link in soup.findAll('a'):
         links.append(link.get('href'))
@@ -85,15 +93,12 @@ def extract_text(soup, webpage):
             text = text.replace("  ", " ")
 
         text = text.strip()
-        with open(f'Lab3/export/content.csv', 'a') as f:
+        with open(f'Lab1/export/content.csv', 'a') as f:
             f.write(webpage + ';')
             f.write(text)
             f.write("\n")
             LOGGER.debug(f"[WRITE]{text}")
         return text
-    except AttributeError as e:
-        LOGGER.warning("Attribute error")
-        return "Blank"
     except Exception as e:
         raise e
 
@@ -104,14 +109,14 @@ def find_email(page_content):
     # emails = emails.split()
     if emails:
         for idx, val in enumerate(emails):
-            f = open('Lab3/export/emails.csv', 'a')
+            f = open('Lab1/export/emails.csv', 'a')
             write = csv.writer(f)
             write.writerow([val])
             f.close()
     return emails
 
 
-def remove_duplicates(emails_file='Lab3/export/emails.csv'):
+def remove_duplicates(emails_file='Lab1/export/emails.csv'):
     df = pd.read_csv(emails_file, delimiter=',')
     df.drop_duplicates(subset=None, inplace=True)
     df.to_csv(emails_file, index=False)
@@ -141,6 +146,7 @@ def main(web_adress):
             find_email(text)
 
     remove_duplicates()
+    LOGGER.info("[DONE]")
 
 
 if __name__ == "__main__":

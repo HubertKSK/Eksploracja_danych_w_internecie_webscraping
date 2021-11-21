@@ -44,7 +44,7 @@ def extract_text(soup, webpage):
         text = text.replace("\n", " ")
         for x in range(5):
             text = re.sub(r"; ;", ";", text)
-        with open(f'export/content.csv', 'a') as f:
+        with open(f'Lab1/export/content.csv', 'a') as f:
             f.write(webpage)
             f.write(text)
             f.write("\n")
@@ -59,14 +59,14 @@ def find_email(text):
     # emails = emails.split()
     if emails:
         for idx, val in enumerate(emails):
-            f = open('export/emails.csv', 'a')
+            f = open('Lab1/export/emails.csv', 'a')
             write = csv.writer(f)
             write.writerow([val])
             f.close()
     return emails
 
 
-def remove_duplicates(emails_file='export/emails.csv'):
+def remove_duplicates(emails_file='Lab1/export/emails.csv'):
     df = pd.read_csv(emails_file, delimiter=',')
     df.drop_duplicates(subset=None, inplace=True)
     df.to_csv(emails_file, index=False)

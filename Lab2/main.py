@@ -148,7 +148,7 @@ def prepare_data(web_address):
     LOGGER.info("Initial scraping done. Scraping links")
     print("Initial scraping done. Scraping links")
     for idx, new_address in enumerate(links):
-        print(f"step:{idx+1}/{len(links)} {round(idx+1/len(links))}%")
+        print(f"step:{idx+1}/{len(links)} {round(((idx+1)/len(links)*100))}%")
         if new_address in visited_addresses:
             LOGGER.debug("Address already visited. Skipping.")
             continue

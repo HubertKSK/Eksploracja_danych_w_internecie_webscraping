@@ -92,7 +92,7 @@ def find_links(soup):
         links_filtered.remove("javascript:void(0)")
     except Exception as e:
         raise e
-    
+
     LOGGER.info(f"LINKS: {links_filtered}")
 
     return links_filtered
@@ -148,7 +148,7 @@ def prepare_data(web_address):
     LOGGER.info("Initial scraping done. Scraping links")
     print("Initial scraping done. Scraping links")
     for idx, new_address in enumerate(links):
-        print(f"step:{idx+1}/{len(links)} {round(((idx+1)/len(links)*100))}%")
+        print(f"step:{idx + 1}/{len(links)} {round(((idx + 1) / len(links) * 100))}%")
         if new_address in visited_addresses:
             LOGGER.debug("Address already visited. Skipping.")
             continue
@@ -174,11 +174,10 @@ def read_ngrams_csv(path_to_file='export/ngrams.csv'):
     return ngrams
 
 
-
-
 def jaccard_index(ngrams, url):
     def return_index(e):
         return e['jaccard_index']
+
     for idx, ngram in enumerate(ngrams):
         if ngram[0] == url:
             my_ngrams = set(ngrams.pop(idx)[1:])
@@ -196,7 +195,7 @@ def jaccard_index(ngrams, url):
         exit(1)
 
     all_results.sort(reverse=True, key=return_index)
-    
+
     return all_results[1:4]
 
 

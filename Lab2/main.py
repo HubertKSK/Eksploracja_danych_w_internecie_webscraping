@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 import csv
 import logging.handlers
+import math
 import os
 import re
-import math
 
 import pandas as pd
 import requests

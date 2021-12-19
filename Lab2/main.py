@@ -179,10 +179,13 @@ def jaccard_index(ngrams, url):
         return e['jaccard_index']
 
     all_results = []
+    my_ngrams = set()
     for idx, ngram in enumerate(ngrams):
         if ngram[0] == url:
             my_ngrams = set(ngrams.pop(idx)[1:])
             break
+        else:
+            continue
     try:
         for idx, ngram in enumerate(ngrams):
             x = set(ngram[1:])
@@ -217,3 +220,4 @@ if __name__ == "__main__":
     prepare_data('https://www.techsterowniki.pl/serwis/kontakt-serwis')
     top_matches = find_similar_webpages('https://www.techsterowniki.pl/k/sterowniki-do-instalacji')
     LOGGER.info(f"Top matches:{top_matches}")
+    print(f"Top matches:{top_matches}")

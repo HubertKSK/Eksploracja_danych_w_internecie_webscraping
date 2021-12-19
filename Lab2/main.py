@@ -178,12 +178,12 @@ def jaccard_index(ngrams, url):
     def return_index(e):
         return e['jaccard_index']
 
+    all_results = []
     for idx, ngram in enumerate(ngrams):
         if ngram[0] == url:
             my_ngrams = set(ngrams.pop(idx)[1:])
             break
     try:
-        all_results = []
         for idx, ngram in enumerate(ngrams):
             x = set(ngram[1:])
             all = len(x.union(my_ngrams))

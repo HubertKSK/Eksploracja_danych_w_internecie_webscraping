@@ -3,6 +3,7 @@ import csv
 import logging.handlers
 import os
 import re
+import math
 
 import pandas as pd
 import requests
@@ -78,6 +79,27 @@ def ngram(text_dump, webpage, n=1):
     return ngrams
 
 
+def create_bag_of_words(text_dump, webpage):
+    bag = {}
+    text_dump = re.sub('[^A-Za-z0-9; ążźćńółęśŻŹĆĄŚĘŁÓŃ]+', '', text_dump)
+    sentence_list = text_dump.split(';')
+    for sentence in sentence_list:
+        word_list = sentence.split(' ')
+        for word in word_list:
+            if word in bag:
+                bag[word] += 1
+            else:
+                bag[word] = 1
+
+    try:
+        bag.pop('')
+    except:
+        pass
+    result = [webpage, bag]
+    LOGGER.debug(f"[Bag of words]:{result}")
+    return result
+
+
 def find_links(soup):
     # TODO: find in text
     links = []
@@ -135,6 +157,7 @@ def remove_duplicates(emails_file='export/emails.csv'):
 
 
 def prepare_data(web_address):
+    bag = []
     starting_web_address = web_address
     visited_addresses = {starting_web_address}
     LOGGER.info("[Starting]")
@@ -143,6 +166,7 @@ def prepare_data(web_address):
 
     text = extract_text(soup.body, web_address)
     ngram_set = ngram(text, web_address, 2)
+    bag.append(create_bag_of_words(text, web_address))
     find_email(text)
 
     LOGGER.info("Initial scraping done. Scraping links")
@@ -158,10 +182,12 @@ def prepare_data(web_address):
             soup = scrape_web(new_address, starting_web_address)
             text = extract_text(soup.body, new_address)
             ngram_set = ngram(text, new_address, 2)
+            bag.append(create_bag_of_words(text, new_address))
             find_email(text)
 
     remove_duplicates()
     LOGGER.info("[DONE] prepare data")
+    return bag
 
 
 def read_ngrams_csv(path_to_file='export/ngrams.csv'):
@@ -198,26 +224,64 @@ def jaccard_index(ngrams, url):
         exit(1)
 
     all_results.sort(reverse=True, key=return_index)
+    LOGGER.info(f"jaccard results: {all_results}")
 
-    return all_results[1:4]
-
-
-def bag_of_words():
-    pass
+    return all_results[0:3]
 
 
-def cosinus_distance():
-    pass
+def bag_of_words(bag, url):
+    def return_index(e):
+        return e['cosinus_distance']
+
+    results = []
+    for idx, website in enumerate(bag):
+        if website[0] == url:
+            print(f"found website {website[0]}")
+            my_bag = bag.pop(idx)[1]
+
+    for website in bag:
+        my_bag_copy = my_bag
+        other_bag = website[1]
+        for key in other_bag.keys():
+            if key not in my_bag_copy:
+                my_bag_copy[key] = 0
+        for key in my_bag_copy.keys():
+            if key not in other_bag:
+                other_bag[key] = 0
+        vector_my_bag = list(my_bag_copy.values())
+        vector_other_bag = list(other_bag.values())
+
+        x, my_bag_a, other_bag_a = 0, 0, 0
+        for idx, val in enumerate(vector_my_bag):
+            x += val * vector_other_bag[idx]
+            my_bag_a += val ^ 2
+            other_bag_a += vector_other_bag[idx]
+        my_bag_a = math.sqrt(my_bag_a)
+        other_bag_a = math.sqrt(other_bag_a)
+        try:
+            result = x / (my_bag_a * other_bag_a)
+        except:
+            result = 0
+        results.append({'website': website[0], 'cosinus_distance': result})
+
+    results.sort(reverse=True, key=return_index)
+    LOGGER.info(f"Cosinus distance results: {results}")
+
+    return results[0:3]
 
 
-def find_similar_webpages(url):
+def find_similar_webpages(url, bag):
     ngrams = read_ngrams_csv()
-    top_matches = jaccard_index(ngrams, url)
-    return top_matches
+    top_matches_jaccard = jaccard_index(ngrams, url)
+    top_matches_cosinous_distance = bag_of_words(bag, url)
+    return top_matches_jaccard, top_matches_cosinous_distance
 
 
 if __name__ == "__main__":
-    prepare_data('https://www.techsterowniki.pl/serwis/kontakt-serwis')
-    top_matches = find_similar_webpages('https://www.techsterowniki.pl/k/sterowniki-do-instalacji')
-    LOGGER.info(f"Top matches:{top_matches}")
-    print(f"Top matches:{top_matches}")
+    bag = prepare_data('https://www.techsterowniki.pl/serwis/kontakt-serwis')
+    top_matches_jaccard, top_matches_cosinous_distance = find_similar_webpages(
+        'https://www.techsterowniki.pl/k/sterowniki-do-instalacji', bag)
+    LOGGER.info(f"Top matches jaccard:{top_matches_jaccard}")
+    LOGGER.info(f"Top matches cosinous distance:{top_matches_cosinous_distance}")
+    print(f"Top matches jaccard:{top_matches_jaccard}")
+    print(f"Top matches cosinous distance:{top_matches_cosinous_distance}")
